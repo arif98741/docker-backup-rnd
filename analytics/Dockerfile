@@ -21,4 +21,8 @@ RUN useradd --uid 10001 --create-home analytics \
  && chown -R analytics:analytics /srv /var/lib/analytics
 USER analytics
 
+# Bake the DuckDB extensions into the image so a worker restart never depends
+# on reaching extensions.duckdb.org.
+RUN python -c "import duckdb; c=duckdb.connect(); c.execute('INSTALL httpfs; INSTALL json;')"
+
 CMD ["python", "-m", "app.archive"]
