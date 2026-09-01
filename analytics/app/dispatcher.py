@@ -5,7 +5,8 @@ Two jobs, on a loop:
   1. Reclaim - outbox rows stuck in 'claimed' past RECLAIM_AFTER go back to
      'pending'. This is what makes a worker crash survivable.
   2. Enqueue - one archive job per (year, month) that still has pending rows.
-     An in-flight set in Redis keeps a slow month from being queued repeatedly.
+     A short-lived Redis lease per month stops a slow month being queued twice,
+     and expires on its own if the worker holding it dies.
 """
 import json
 import signal
@@ -70,8 +71,10 @@ def main() -> None:
 
                 for b in pending_buckets(conn):
                     bucket_id = f"{b['y']}-{int(b['m']):02d}"
-                    # sadd returns 0 if this month is already queued or running.
-                    if not r.sadd(cfg.inflight_key, bucket_id):
+                    # nx=True: only one dispatcher wins the lease for this month.
+                    # ex=ttl: a dead worker's lease expires and the month retries.
+                    if not r.set(cfg.inflight_prefix + bucket_id, "1",
+                                 nx=True, ex=cfg.inflight_ttl):
                         continue
                     job = {
                         "year": int(b["y"]),

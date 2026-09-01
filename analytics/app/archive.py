@@ -287,11 +287,14 @@ def main() -> None:
         _, payload = item
         job = json.loads(payload)
         bucket_id = f"{job['year']}-{int(job['month']):02d}"
+        lease = cfg.inflight_prefix + bucket_id
         requeued = False
         try:
             written = process(job)
-            # More rows may remain for this month; re-queue so the next batch runs.
+            # More rows may remain for this month; re-queue so the next batch
+            # runs, and push the lease out so the dispatcher does not duplicate it.
             if written >= int(job.get("batch", cfg.archive_batch_size)):
+                r.expire(lease, cfg.inflight_ttl)
                 r.rpush(cfg.queue_key, payload)
                 requeued = True
         except Exception as exc:
@@ -299,7 +302,7 @@ def main() -> None:
             time.sleep(2)
         finally:
             if not requeued:
-                r.srem(cfg.inflight_key, bucket_id)
+                r.delete(lease)
 
     log.info("stopped")
 

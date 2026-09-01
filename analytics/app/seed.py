@@ -9,7 +9,6 @@ obligation, and an obligation cannot exist without an event.
 """
 import argparse
 import json
-import os
 import random
 import secrets
 import time

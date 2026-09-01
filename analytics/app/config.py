@@ -36,6 +36,9 @@ class Config:
     archive_batch_size: int = _int("ARCHIVE_BATCH_SIZE", 50_000)
     dispatch_interval: int = _int("DISPATCH_INTERVAL", 15)
     reclaim_after: int = _int("RECLAIM_AFTER", 300)
+    # Lease held while a month is being archived. If the worker dies the
+    # lease expires and the dispatcher re-queues the month.
+    inflight_ttl: int = _int("INFLIGHT_TTL", 600)
 
     duckdb_memory_limit: str = os.getenv("DUCKDB_MEMORY_LIMIT", "4GB")
     duckdb_threads: int = _int("DUCKDB_THREADS", 4)
@@ -44,7 +47,7 @@ class Config:
 
     # Redis keys
     queue_key: str = "archive:jobs"
-    inflight_key: str = "archive:inflight"
+    inflight_prefix: str = "archive:inflight:"
 
     @property
     def archive_prefix(self) -> str:
